@@ -398,20 +398,31 @@ function renderStationStep(field) {
 
 function renderDateStep() {
     const f = state.form;
-    // Min date = today
     const today = new Date().toISOString().split('T')[0];
+
+    // Display formatted date for the label
+    let dateLabel = '';
+    if (f.date) {
+        dateLabel = fmtDate(f.date, state.lang);
+    }
 
     return `
     <div class="form-group">
         <label class="form-label">${t('step_date')}</label>
-        <input
-            class="form-input"
-            id="date-input"
-            type="date"
-            value="${f.date}"
-            min="${today}"
-            style="-webkit-appearance:none"
-        >
+        <div class="date-picker-wrap">
+            <input
+                class="form-input date-input"
+                id="date-input"
+                type="date"
+                value="${f.date}"
+                min="${today}"
+            >
+            <div class="date-display ${f.date ? 'has-value' : ''}">
+                <span class="date-display-icon">📅</span>
+                <span class="date-display-text">${dateLabel || t('enter_date')}</span>
+                <span class="date-display-arrow">›</span>
+            </div>
+        </div>
     </div>
     ${f.from ? `
     <div class="detail-section" style="margin-top:4px">
@@ -489,6 +500,13 @@ function attachListeners() {
     if (dateInput) {
         dateInput.addEventListener('change', (e) => {
             state.form.date = e.target.value;
+            // Update display without full re-render
+            const display = document.querySelector('.date-display');
+            const textEl = document.querySelector('.date-display-text');
+            if (display && textEl && e.target.value) {
+                display.classList.add('has-value');
+                textEl.textContent = fmtDate(e.target.value, state.lang);
+            }
         });
     }
 }
