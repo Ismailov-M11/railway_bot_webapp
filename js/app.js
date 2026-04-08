@@ -44,6 +44,7 @@ function navigate(view, opts = {}) {
     if (view === 'routes') {
         hideTgBack();
         setTgMainBtn(null);
+        if (tgApp) tgApp.disableClosingConfirmation();
     } else if (view === 'detail') {
         state.selectedRouteId = opts.routeId;
         state.checkResult = null;
@@ -64,6 +65,8 @@ function navigate(view, opts = {}) {
         };
         showTgBack(onFormBack);
         updateFormMainBtn();
+        // Warn user if they try to close while filling the form
+        if (tgApp) tgApp.enableClosingConfirmation();
     } else if (view === 'settings') {
         state.settingsForm = {
             lang: state.user.language,
@@ -482,23 +485,22 @@ function attachListeners() {
         stationInput.focus();
     }
 
-    // Date picker — click on display triggers native picker via showPicker()
-    const dateInput   = document.getElementById('date-input');
-    const dateDisplay = document.getElementById('date-display-btn');
-    if (dateInput && dateDisplay) {
-        dateDisplay.addEventListener('click', () => {
-            try {
-                dateInput.showPicker();        // Chrome 99+, Firefox 101+, Safari 16+
-            } catch {
-                dateInput.focus();             // fallback for older browsers
-            }
+    // Date picker:
+    //   iOS/Android — input is transparent but tappable (pointer-events:auto, z-index:2)
+    //   Desktop     — wrapper click calls showPicker() since clicking a transparent
+    //                 date input only triggers the picker on its internal chevron
+    const dateInput = document.getElementById('date-input');
+    const dateWrap  = document.querySelector('.date-picker-wrap');
+    if (dateInput && dateWrap) {
+        dateWrap.addEventListener('click', () => {
+            try { dateInput.showPicker(); } catch { /* iOS handles via direct tap */ }
         });
         dateInput.addEventListener('change', (e) => {
             state.form.date = e.target.value;
             if (e.target.value) {
-                dateDisplay.classList.add('has-value');
-                document.getElementById('date-display-text').textContent =
-                    fmtDate(e.target.value, state.lang);
+                document.getElementById('date-display-btn')?.classList.add('has-value');
+                const txt = document.getElementById('date-display-text');
+                if (txt) txt.textContent = fmtDate(e.target.value, state.lang);
             }
         });
     }
