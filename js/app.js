@@ -44,7 +44,6 @@ function navigate(view, opts = {}) {
     if (view === 'routes') {
         hideTgBack();
         setTgMainBtn(null);
-        if (tgApp) tgApp.disableClosingConfirmation();
     } else if (view === 'detail') {
         state.selectedRouteId = opts.routeId;
         state.checkResult = null;
@@ -65,8 +64,6 @@ function navigate(view, opts = {}) {
         };
         showTgBack(onFormBack);
         updateFormMainBtn();
-        // Warn user if they try to close while filling the form
-        if (tgApp) tgApp.enableClosingConfirmation();
     } else if (view === 'settings') {
         state.settingsForm = {
             lang: state.user.language,
@@ -872,6 +869,7 @@ async function init() {
     if (tgApp) {
         tgApp.ready();
         tgApp.expand();
+        tgApp.enableClosingConfirmation();
     }
 
     // Show initial loading
