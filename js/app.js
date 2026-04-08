@@ -161,7 +161,7 @@ function renderRoutes() {
             <div class="empty-title">${t('no_routes')}</div>
         </div>`;
     } else {
-        body = state.routes.map((route, i) => {
+        body = state.routes.map((route) => {
             const dateUi = fmtDate(route.travel_date, lang);
             return `
             <button class="route-card" data-action="open-route" data-id="${route.id}">
@@ -305,7 +305,7 @@ function renderAddForm() {
 
     // Step indicator
     const steps = [t('step_from'), t('step_to'), t('step_date')];
-    const stepDots = steps.map((label, i) => {
+    const stepDots = steps.map((_label, i) => {
         const idx = i + 1;
         const cls = idx < f.step ? 'done' : (idx === f.step ? 'active' : '');
         return `<div class="step ${cls}"></div>`;
@@ -386,7 +386,9 @@ function renderStationStep(field) {
                 data-field="${field}"
                 autocomplete="off"
                 autocorrect="off"
+                autocapitalize="off"
                 spellcheck="false"
+                dir="ltr"
                 autofocus
             >
             ${results ? `<div class="search-results">${results}</div>` : ''}
@@ -536,7 +538,6 @@ let _searchTimer = null;
 
 function handleStationInput(e) {
     const query = e.target.value;
-    const field = e.target.dataset.field;
     state.form.searchQuery = query;
 
     clearTimeout(_searchTimer);
