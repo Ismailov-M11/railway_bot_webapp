@@ -359,19 +359,6 @@ function renderStationStep(field) {
     }
 
     const placeholder = t('search_placeholder');
-    let results = '';
-    if (f.searchLoading) {
-        results = `<div class="search-hint">${t('searching')}</div>`;
-    } else if (f.searchQuery.length >= 2 && f.searchResults.length === 0) {
-        results = `<div class="search-hint">${t('no_stations')}</div>`;
-    } else if (f.searchResults.length > 0) {
-        results = f.searchResults.slice(0, 8).map(s =>
-            `<button class="search-item" data-action="select-station" data-field="${field}" data-code="${esc(s.code)}" data-name="${esc(s.name)}">
-                <span>${esc(s.name)}</span>
-                <span class="search-item-code">${esc(s.code)}</span>
-            </button>`
-        ).join('');
-    }
 
     return `
     <div class="form-group">
@@ -391,7 +378,7 @@ function renderStationStep(field) {
                 dir="ltr"
                 autofocus
             >
-            ${results ? `<div class="search-results">${results}</div>` : ''}
+            <div class="search-results" id="search-results-box"></div>
         </div>
     </div>`;
 }
@@ -550,12 +537,36 @@ function handleClick(e) {
 }
 
 /* ──────────────────────────────────────
-   Station search (debounced)
+   Station search (debounced, partial DOM update)
 ────────────────────────────────────── */
 let _searchTimer = null;
 
+// Updates ONLY the results box — never re-creates the input element
+function _renderSearchResults(field) {
+    const box = document.getElementById('search-results-box');
+    if (!box) return;
+    const f = state.form;
+    let html = '';
+    if (f.searchLoading) {
+        html = `<div class="search-hint">${t('searching')}</div>`;
+    } else if (f.searchQuery.length >= 2 && f.searchResults.length === 0) {
+        html = `<div class="search-hint">${t('no_stations')}</div>`;
+    } else if (f.searchResults.length > 0) {
+        html = f.searchResults.slice(0, 8).map(s =>
+            `<button class="search-item" data-action="select-station"
+                data-field="${field}" data-code="${esc(s.code)}" data-name="${esc(s.name)}">
+                <span>${esc(s.name)}</span>
+                <span class="search-item-code">${esc(s.code)}</span>
+            </button>`
+        ).join('');
+    }
+    box.innerHTML = html;
+    box.style.display = html ? 'block' : 'none';
+}
+
 function handleStationInput(e) {
     const query = e.target.value;
+    const field = e.target.dataset.field;
     state.form.searchQuery = query;
 
     clearTimeout(_searchTimer);
@@ -563,12 +574,12 @@ function handleStationInput(e) {
     if (query.length < 2) {
         state.form.searchResults = [];
         state.form.searchLoading = false;
-        render();
+        _renderSearchResults(field);
         return;
     }
 
     state.form.searchLoading = true;
-    render();
+    _renderSearchResults(field);
 
     _searchTimer = setTimeout(async () => {
         try {
@@ -578,8 +589,8 @@ function handleStationInput(e) {
             state.form.searchResults = [];
         }
         state.form.searchLoading = false;
-        render();
-    }, 350);
+        _renderSearchResults(field);
+    }, 400);
 }
 
 /* ──────────────────────────────────────
@@ -678,13 +689,7 @@ function startEditRoute(routeId) {
    Delete route
 ────────────────────────────────────── */
 function confirmDeleteRoute(routeId) {
-    if (tgApp) {
-        tgApp.showConfirm(t('confirm_delete'), async (confirmed) => {
-            if (confirmed) await doDeleteRoute(routeId);
-        });
-    } else {
-        if (window.confirm(t('confirm_delete'))) doDeleteRoute(routeId);
-    }
+    showConfirmSheet(t('confirm_delete'), () => doDeleteRoute(routeId));
 }
 
 async function doDeleteRoute(routeId) {
@@ -774,6 +779,38 @@ async function loadUser() {
     state.user = data.user;
     state.lang = data.user.language || 'ru';
     window._appLang = state.lang;
+}
+
+/* ──────────────────────────────────────
+   Confirm bottom sheet (replaces tg.showConfirm
+   so buttons are always in the correct language)
+────────────────────────────────────── */
+function showConfirmSheet(message, onConfirm) {
+    // Remove any existing sheet
+    document.getElementById('confirm-sheet-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'confirm-sheet-overlay';
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+        <div class="confirm-sheet">
+            <div class="confirm-message">${esc(message)}</div>
+            <button class="btn btn-danger" id="confirm-yes-btn">${t('yes')}</button>
+            <button class="btn btn-secondary" id="confirm-no-btn">${t('cancel')}</button>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    document.getElementById('confirm-yes-btn').addEventListener('click', () => {
+        overlay.remove();
+        onConfirm();
+    });
+    document.getElementById('confirm-no-btn').addEventListener('click', () => {
+        overlay.remove();
+    });
+    // Tap outside to dismiss
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
 }
 
 /* ──────────────────────────────────────
