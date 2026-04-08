@@ -398,15 +398,15 @@ function renderDateStep() {
         <label class="form-label">${t('step_date')}</label>
         <div class="date-picker-wrap">
             <input
-                class="form-input date-input"
+                class="date-input"
                 id="date-input"
                 type="date"
                 value="${f.date}"
                 min="${today}"
             >
-            <div class="date-display ${f.date ? 'has-value' : ''}">
+            <div class="date-display ${f.date ? 'has-value' : ''}" id="date-display-btn">
                 <span class="date-display-icon">📅</span>
-                <span class="date-display-text">${dateLabel || t('enter_date')}</span>
+                <span id="date-display-text" class="date-display-text">${dateLabel || t('enter_date')}</span>
                 <span class="date-display-arrow">›</span>
             </div>
         </div>
@@ -482,17 +482,23 @@ function attachListeners() {
         stationInput.focus();
     }
 
-    // Date input
-    const dateInput = document.getElementById('date-input');
-    if (dateInput) {
+    // Date picker — click on display triggers native picker via showPicker()
+    const dateInput   = document.getElementById('date-input');
+    const dateDisplay = document.getElementById('date-display-btn');
+    if (dateInput && dateDisplay) {
+        dateDisplay.addEventListener('click', () => {
+            try {
+                dateInput.showPicker();        // Chrome 99+, Firefox 101+, Safari 16+
+            } catch {
+                dateInput.focus();             // fallback for older browsers
+            }
+        });
         dateInput.addEventListener('change', (e) => {
             state.form.date = e.target.value;
-            // Update display without full re-render
-            const display = document.querySelector('.date-display');
-            const textEl = document.querySelector('.date-display-text');
-            if (display && textEl && e.target.value) {
-                display.classList.add('has-value');
-                textEl.textContent = fmtDate(e.target.value, state.lang);
+            if (e.target.value) {
+                dateDisplay.classList.add('has-value');
+                document.getElementById('date-display-text').textContent =
+                    fmtDate(e.target.value, state.lang);
             }
         });
     }
