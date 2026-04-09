@@ -11,8 +11,9 @@ const state = {
 
     // Detail / check
     selectedRouteId: null,
-    checkResult: null,  // null | { available, trains, checked_at }
+    checkResult: null,        // null | { available, trains, checked_at }
     checkLoading: false,
+    checkCountdownSec: 0,     // > 0 while rate-limit countdown is running
 
     // Add / edit form
     form: {
@@ -48,8 +49,9 @@ function navigate(view, opts = {}) {
         state.selectedRouteId = opts.routeId;
         state.checkResult = null;
         state.checkLoading = false;
+        state.checkCountdownSec = 0;
         showTgBack(() => navigate('routes'));
-        setTgMainBtn(t('check'), doCheckRoute);
+        setTgMainBtn(null);
     } else if (view === 'add') {
         state.form = {
             editId: opts.editId || null,
@@ -206,6 +208,12 @@ function renderDetail() {
         <div class="inline-loading">
             <div class="spinner"></div>
             <span>${t('checking')}</span>
+        </div>`;
+    } else if (state.checkCountdownSec > 0) {
+        checkSection = `
+        <div class="countdown-block" id="check-countdown-display">
+            <span class="countdown-icon">⏳</span>
+            <span class="countdown-text" id="countdown-text">${state.checkCountdownSec}s</span>
         </div>`;
     } else if (state.checkResult) {
         const cr = state.checkResult;
@@ -741,35 +749,55 @@ let _countdownTimer = null;
 let _checkPending = false; // true while countdown is running — blocks extra clicks
 
 function _startCountdown(ms, onDone) {
-    setTgMainBtn(null, null);
     if (_countdownTimer) clearInterval(_countdownTimer);
 
     let remaining = Math.ceil(ms / 1000);
-    _updateCheckBtn(remaining);
+    state.checkCountdownSec = remaining;
+    _updateCountdown(remaining);
 
     _countdownTimer = setInterval(() => {
         remaining--;
+        state.checkCountdownSec = remaining;
         if (remaining <= 0) {
             clearInterval(_countdownTimer);
             _countdownTimer = null;
-            _updateCheckBtn(null);
-            setTgMainBtn(t('check'), doCheckRoute);
+            _updateCountdown(0);
             onDone();
         } else {
-            _updateCheckBtn(remaining);
+            _updateCountdown(remaining);
         }
     }, 1000);
 }
 
-function _updateCheckBtn(seconds) {
+// Partial DOM update — only touches the countdown elements, never re-renders
+function _updateCountdown(seconds) {
     const btn = document.getElementById('check-btn-countdown');
-    if (!btn) return;
-    if (seconds === null) {
-        btn.textContent = `🔍 ${t('check')}`;
-        btn.disabled = false;
+
+    if (seconds <= 0) {
+        // Restore button, hide countdown block
+        if (btn) { btn.textContent = `🔍 ${t('check')}`; btn.disabled = false; }
+        const display = document.getElementById('check-countdown-display');
+        if (display) display.remove();
+        return;
+    }
+
+    // Disable button
+    if (btn) { btn.textContent = `🔍 ${t('check')}`; btn.disabled = true; }
+
+    // Update or create the countdown block
+    const textEl = document.getElementById('countdown-text');
+    if (textEl) {
+        textEl.textContent = `${seconds}s`;
     } else {
-        btn.textContent = `⏳ ${seconds}s`;
-        btn.disabled = true;
+        // Block not in DOM yet (first tick) — insert before the check button
+        const wrap = btn ? btn.parentNode : null;
+        if (wrap) {
+            const div = document.createElement('div');
+            div.className = 'countdown-block';
+            div.id = 'check-countdown-display';
+            div.innerHTML = `<span class="countdown-icon">⏳</span><span class="countdown-text" id="countdown-text">${seconds}s</span>`;
+            wrap.insertBefore(div, btn);
+        }
     }
 }
 
