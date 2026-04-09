@@ -738,14 +738,13 @@ function _recordCheck(routeId) {
 }
 
 let _countdownTimer = null;
+let _checkPending = false; // true while countdown is running — blocks extra clicks
 
 function _startCountdown(ms, onDone) {
-    setTgMainBtn(null, null); // hide main button during countdown
+    setTgMainBtn(null, null);
     if (_countdownTimer) clearInterval(_countdownTimer);
 
     let remaining = Math.ceil(ms / 1000);
-
-    // Show countdown in the check button area in the detail view
     _updateCheckBtn(remaining);
 
     _countdownTimer = setInterval(() => {
@@ -753,7 +752,7 @@ function _startCountdown(ms, onDone) {
         if (remaining <= 0) {
             clearInterval(_countdownTimer);
             _countdownTimer = null;
-            _updateCheckBtn(null); // restore normal button
+            _updateCheckBtn(null);
             setTgMainBtn(t('check'), doCheckRoute);
             onDone();
         } else {
@@ -766,10 +765,10 @@ function _updateCheckBtn(seconds) {
     const btn = document.getElementById('check-btn-countdown');
     if (!btn) return;
     if (seconds === null) {
-        btn.textContent = t('check');
+        btn.textContent = `🔍 ${t('check')}`;
         btn.disabled = false;
     } else {
-        btn.textContent = `${t('check')} ${seconds}s`;
+        btn.textContent = `⏳ ${seconds}s`;
         btn.disabled = true;
     }
 }
@@ -778,11 +777,14 @@ function _updateCheckBtn(seconds) {
    Check route
 ────────────────────────────────────── */
 async function doCheckRoute() {
-    if (state.checkLoading) return;
+    // Block if already loading or countdown is running
+    if (state.checkLoading || _checkPending) return;
 
     const delay = _getCheckDelay(state.selectedRouteId);
     if (delay > 0) {
+        _checkPending = true;
         await new Promise(resolve => _startCountdown(delay, resolve));
+        _checkPending = false;
     }
 
     _recordCheck(state.selectedRouteId);
