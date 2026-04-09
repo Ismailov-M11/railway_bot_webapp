@@ -251,6 +251,7 @@ function renderDetail() {
                 <button class="btn btn-secondary btn-sm" data-action="edit-route" data-id="${route.id}">✏️ ${t('edit')}</button>
                 <button class="btn btn-danger btn-sm" data-action="delete-route" data-id="${route.id}">🗑 ${t('delete')}</button>
             </div>
+            <button class="btn btn-primary" id="check-btn-countdown" data-action="check-route-btn">🔍 ${t('check')}</button>
 
             ${checkSection}
         </div>
@@ -514,6 +515,7 @@ function handleClick(e) {
         case 'open-route':  navigate('detail', { routeId: parseInt(el.dataset.id) }); break;
         case 'edit-route':  startEditRoute(parseInt(el.dataset.id)); break;
         case 'delete-route': confirmDeleteRoute(parseInt(el.dataset.id)); break;
+        case 'check-route-btn': doCheckRoute(); break;
 
         case 'select-station': {
             const field = el.dataset.field;
@@ -709,17 +711,89 @@ async function doDeleteRoute(routeId) {
 }
 
 /* ──────────────────────────────────────
+   Rate limiter for check route
+   Thresholds: [2, 3, 5, 10, 30, 60] seconds
+────────────────────────────────────── */
+const _RATE_THRESHOLDS = [2000, 3000, 5000, 10000, 30000, 60000]; // ms
+const _checkRateState = {}; // { routeId: { last: ms, step: 0 } }
+
+function _getCheckDelay(routeId) {
+    const now = Date.now();
+    const s = _checkRateState[routeId];
+    if (!s) return 0;
+    const elapsed = now - s.last;
+    const minGap = _RATE_THRESHOLDS[Math.min(s.step, _RATE_THRESHOLDS.length - 1)];
+    if (elapsed >= minGap) return 0;
+    const forced = _RATE_THRESHOLDS[Math.min(s.step + 1, _RATE_THRESHOLDS.length - 1)];
+    return Math.max(0, forced - elapsed);
+}
+
+function _recordCheck(routeId) {
+    const now = Date.now();
+    const s = _checkRateState[routeId];
+    if (!s) { _checkRateState[routeId] = { last: now, step: 0 }; return; }
+    const elapsed = now - s.last;
+    const step = elapsed >= 60000 ? 0 : Math.min(s.step + 1, _RATE_THRESHOLDS.length - 1);
+    _checkRateState[routeId] = { last: now, step };
+}
+
+let _countdownTimer = null;
+
+function _startCountdown(ms, onDone) {
+    setTgMainBtn(null, null); // hide main button during countdown
+    if (_countdownTimer) clearInterval(_countdownTimer);
+
+    let remaining = Math.ceil(ms / 1000);
+
+    // Show countdown in the check button area in the detail view
+    _updateCheckBtn(remaining);
+
+    _countdownTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(_countdownTimer);
+            _countdownTimer = null;
+            _updateCheckBtn(null); // restore normal button
+            setTgMainBtn(t('check'), doCheckRoute);
+            onDone();
+        } else {
+            _updateCheckBtn(remaining);
+        }
+    }, 1000);
+}
+
+function _updateCheckBtn(seconds) {
+    const btn = document.getElementById('check-btn-countdown');
+    if (!btn) return;
+    if (seconds === null) {
+        btn.textContent = t('check');
+        btn.disabled = false;
+    } else {
+        btn.textContent = `${t('check')} ${seconds}s`;
+        btn.disabled = true;
+    }
+}
+
+/* ──────────────────────────────────────
    Check route
 ────────────────────────────────────── */
 async function doCheckRoute() {
     if (state.checkLoading) return;
+
+    const delay = _getCheckDelay(state.selectedRouteId);
+    if (delay > 0) {
+        await new Promise(resolve => _startCountdown(delay, resolve));
+    }
+
+    _recordCheck(state.selectedRouteId);
+
     state.checkLoading = true;
     state.checkResult = null;
     render();
 
     try {
         const result = await API.checkRoute(state.selectedRouteId);
-        state.checkResult = result; // { available, trains, checked_at }
+        state.checkResult = result;
     } catch (err) {
         showToast(err.message || t('error_check'), 'error');
         state.checkResult = null;
