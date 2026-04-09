@@ -209,12 +209,6 @@ function renderDetail() {
             <div class="spinner"></div>
             <span>${t('checking')}</span>
         </div>`;
-    } else if (state.checkCountdownSec > 0) {
-        checkSection = `
-        <div class="countdown-block" id="check-countdown-display">
-            <span class="countdown-icon">⏳</span>
-            <span class="countdown-text" id="countdown-text">${state.checkCountdownSec}s</span>
-        </div>`;
     } else if (state.checkResult) {
         const cr = state.checkResult;
         const statusText = cr.available ? t('tickets_available') : t('tickets_none');
@@ -259,9 +253,14 @@ function renderDetail() {
                 <button class="btn btn-secondary btn-sm" data-action="edit-route" data-id="${route.id}">✏️ ${t('edit')}</button>
                 <button class="btn btn-danger btn-sm" data-action="delete-route" data-id="${route.id}">🗑 ${t('delete')}</button>
             </div>
-            <button class="btn btn-primary" id="check-btn-countdown" data-action="check-route-btn">🔍 ${t('check')}</button>
 
             ${checkSection}
+        </div>
+
+        <div class="bottom-bar">
+            <button class="btn btn-primary" id="check-btn-countdown" data-action="check-route-btn">
+                🔍 ${t('check')}
+            </button>
         </div>
     </div>`;
 }
@@ -769,35 +768,16 @@ function _startCountdown(ms, onDone) {
     }, 1000);
 }
 
-// Partial DOM update — only touches the countdown elements, never re-renders
+// Partial DOM update — only touches the check button text, never re-renders
 function _updateCountdown(seconds) {
     const btn = document.getElementById('check-btn-countdown');
-
+    if (!btn) return;
     if (seconds <= 0) {
-        // Restore button, hide countdown block
-        if (btn) { btn.textContent = `🔍 ${t('check')}`; btn.disabled = false; }
-        const display = document.getElementById('check-countdown-display');
-        if (display) display.remove();
-        return;
-    }
-
-    // Disable button
-    if (btn) { btn.textContent = `🔍 ${t('check')}`; btn.disabled = true; }
-
-    // Update or create the countdown block
-    const textEl = document.getElementById('countdown-text');
-    if (textEl) {
-        textEl.textContent = `${seconds}s`;
+        btn.innerHTML = `🔍 ${t('check')}`;
+        btn.disabled = false;
     } else {
-        // Block not in DOM yet (first tick) — insert before the check button
-        const wrap = btn ? btn.parentNode : null;
-        if (wrap) {
-            const div = document.createElement('div');
-            div.className = 'countdown-block';
-            div.id = 'check-countdown-display';
-            div.innerHTML = `<span class="countdown-icon">⏳</span><span class="countdown-text" id="countdown-text">${seconds}s</span>`;
-            wrap.insertBefore(div, btn);
-        }
+        btn.innerHTML = `⏳ ${seconds}s`;
+        btn.disabled = true;
     }
 }
 
