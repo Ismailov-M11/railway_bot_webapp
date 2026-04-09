@@ -954,6 +954,13 @@ async function init() {
         tgApp.ready();
         tgApp.expand();
         tgApp.enableClosingConfirmation();
+
+        // Apply color scheme as data-theme attribute
+        const applyTheme = () => {
+            document.documentElement.setAttribute('data-theme', tgApp.colorScheme || 'light');
+        };
+        applyTheme();
+        tgApp.onEvent('themeChanged', applyTheme);
     }
 
     // Show initial loading

@@ -921,3 +921,25 @@ html, body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
+
+/* ── Dark theme overrides ── */
+[data-theme="dark"] {
+    --border:  rgba(255,255,255,0.10);
+    --shadow:  0 1px 6px rgba(0,0,0,0.40);
+}
+
+[data-theme="dark"] .route-card,
+[data-theme="dark"] .train-card,
+[data-theme="dark"] .section,
+[data-theme="dark"] .detail-section,
+[data-theme="dark"] .check-result-header {
+    border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .date-display {
+    border-color: rgba(255,255,255,0.12);
+}
+
+[data-theme="dark"] .search-results {
+    border-color: rgba(255,255,255,0.12);
+}
